@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="container">
+  <h2>Search results for "{{ request.GET.q }}"</h2>
+  <div class="row">
+    {% for item in object_list %}
+      <div class="col-md-3">
+        <div class="card mb-3">
+          <img src="{{ item.image.url }}" class="card-img-top" alt="{{ item.title }}">
+          <div class="card-body">
+            <h5 class="card-title">{{ item.title }}</h5>
+            <p class="card-text">{{ item.price }} €</p>
+            <a href="{{ item.get_absolute_url }}" class="btn btn-primary">View</a>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <p>No results found.</p>
+    {% endfor %}
+  </div>
+</main>
+{% endblock content %}

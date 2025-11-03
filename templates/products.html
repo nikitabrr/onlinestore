@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="container">
+  <h2>Products in category {{ view.kwargs.category }}</h2>
+  <div class="row">
+    {% for item in object_list %}
+      <div class="col-md-3">
+        <div class="card mb-3">
+          <img src="{{ item.image.url }}" class="card-img-top" alt="{{ item.title }}">
+          <div class="card-body">
+            <h5 class="card-title">{{ item.title }}</h5>
+            <p class="card-text">{{ item.price }} €</p>
+            <a href="{{ item.get_absolute_url }}" class="btn btn-primary">View</a>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <p>No items found in this category.</p>
+    {% endfor %}
+  </div>
+  {% if is_paginated %}
+    <nav><ul class="pagination">{% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Prev</a></li>{% endif %}{% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>{% endif %}</ul></nav>
+  {% endif %}
+</main>
+{% endblock content %}
