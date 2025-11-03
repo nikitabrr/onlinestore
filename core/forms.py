@@ -1,8 +1,3 @@
-# Project: Online Store (modified)
-# This file is part of the e-commerce sample project.
-# All comments are in English. The project contains only Base and Medium complexity features.
-# Removed or intentionally left out High complexity features (multilingual, multi-level categories, advanced image zoom).
-
 from django import forms
 from django_countries.fields import CountryField
 from django_countries.widgets import CountrySelectWidget
@@ -52,21 +47,11 @@ class CouponForm(forms.Form):
     }))
 
 
-class RefundForm(forms.Form):
-    ref_code = forms.CharField()
-    message = forms.CharField(widget=forms.Textarea(attrs={
-        'rows': 4
-    }))
-    email = forms.EmailField()
-
-
 class PaymentForm(forms.Form):
     stripeToken = forms.CharField(required=False)
     save = forms.BooleanField(required=False)
     use_default = forms.BooleanField(required=False)
 
-
-from django import forms
 
 class ReviewForm(forms.Form):
     rating = forms.IntegerField(min_value=1, max_value=5)

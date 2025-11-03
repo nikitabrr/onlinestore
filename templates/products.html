@@ -1,25 +1,114 @@
 {% extends "base.html" %}
 {% block content %}
+
+<!-- Breadcrumbs -->
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:home' %}">Home</a></li>
+    <li class="breadcrumb-item active" aria-current="page">
+      {% if view.kwargs.category == 'S' %}Shirts
+      {% elif view.kwargs.category == 'SW' %}Sport wear
+      {% elif view.kwargs.category == 'OW' %}Outwear
+      {% endif %}
+    </li>
+  </ol>
+</nav>
+
 <main class="container">
-  <h2>Products in category {{ view.kwargs.category }}</h2>
-  <div class="row">
-    {% for item in object_list %}
-      <div class="col-md-3">
-        <div class="card mb-3">
-          <img src="{{ item.image.url }}" class="card-img-top" alt="{{ item.title }}">
-          <div class="card-body">
+  <h2 class="mb-4">
+    {% if view.kwargs.category == 'S' %}Shirts
+    {% elif view.kwargs.category == 'SW' %}Sport wear
+    {% elif view.kwargs.category == 'OW' %}Outwear
+    {% endif %}
+  </h2>
+
+  <!-- Bestsellers in Category -->
+  {% if bestsellers %}
+  <section class="mb-5">
+    <h3 class="mb-4">Best Selling in this Category</h3>
+    <div class="row">
+      {% for item in bestsellers %}
+      <div class="col-md-3 mb-4">
+        <div class="card h-100">
+          <div class="position-relative">
+            {% if item.image %}
+            <img src="{{ item.image.url }}" class="card-img-top" alt="{{ item.title }}">
+            {% endif %}
+            <a href="{{ item.get_absolute_url }}" class="stretched-link"></a>
+          </div>
+          <div class="card-body text-center">
             <h5 class="card-title">{{ item.title }}</h5>
-            <p class="card-text">{{ item.price }} €</p>
-            <a href="{{ item.get_absolute_url }}" class="btn btn-primary">View</a>
+            <p class="text-primary h5">
+              {% if item.discount_price %}
+                <del class="text-muted small">${{ item.price }}</del>
+                ${{ item.discount_price }}
+              {% else %}
+                ${{ item.price }}
+              {% endif %}
+            </p>
+            <small class="text-muted">⭐ {{ item.average_rating|floatformat:1 }}</small>
           </div>
         </div>
       </div>
-    {% empty %}
-      <p>No items found in this category.</p>
-    {% endfor %}
-  </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- All Products in Category -->
+  <section>
+    <h3 class="mb-4">All Products</h3>
+    <div class="row">
+      {% for item in object_list %}
+        <div class="col-md-3 mb-4">
+          <div class="card h-100">
+            <div class="position-relative">
+              {% if item.image %}
+              <img src="{{ item.image.url }}" class="card-img-top" alt="{{ item.title }}">
+              {% endif %}
+              <a href="{{ item.get_absolute_url }}" class="stretched-link"></a>
+            </div>
+            <div class="card-body text-center">
+              <h5 class="card-title">{{ item.title }}</h5>
+              <p class="text-primary h5">
+                {% if item.discount_price %}
+                  ${{ item.discount_price }}
+                {% else %}
+                  ${{ item.price }}
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+      {% empty %}
+        <div class="col-12">
+          <p class="text-center text-muted">No items found in this category.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Pagination -->
   {% if is_paginated %}
-    <nav><ul class="pagination">{% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Prev</a></li>{% endif %}{% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a></li>{% endif %}</ul></nav>
+    <nav class="mt-4">
+      <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+
+        <li class="page-item active">
+          <a class="page-link" href="?page={{ page_obj.number }}">{{ page_obj.number }}</a>
+        </li>
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
   {% endif %}
 </main>
 {% endblock content %}

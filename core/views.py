@@ -1,4 +1,3 @@
-
 import random
 import string
 
@@ -12,9 +11,10 @@ from django.shortcuts import redirect
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.views.generic import ListView, DetailView, View
+from django.db.models import Q
 
-from .forms import CheckoutForm, CouponForm, RefundForm, PaymentForm
-from .models import Item, OrderItem, Order, Address, Payment, Coupon, Refund, UserProfile
+from .forms import CheckoutForm, CouponForm, PaymentForm
+from .models import Item, OrderItem, Order, Address, Payment, Coupon, UserProfile, Review
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -23,19 +23,71 @@ def create_ref_code():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=20))
 
 
-def products(request):
-    context = {
-        'items': Item.objects.all()
-    }
-    return render(request, "products.html", context)
-
-
 def is_valid_form(values):
     valid = True
     for field in values:
         if field == '':
             valid = False
     return valid
+
+
+class HomeView(ListView):
+    model = Item
+    paginate_by = 10
+    template_name = "home.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Найбільш продавані товари (топ 4)
+        context['bestsellers'] = Item.objects.order_by('-sales_count')[:4]
+        return context
+
+
+class CategoryItemListView(ListView):
+    model = Item
+    template_name = "products.html"
+    paginate_by = 12
+
+    def get_queryset(self):
+        category = self.kwargs.get('category')
+        return Item.objects.filter(category=category)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        category = self.kwargs.get('category')
+        # Найбільш продавані товари в категорії (топ 4)
+        context['bestsellers'] = Item.objects.filter(category=category).order_by('-sales_count')[:4]
+        return context
+
+
+class SearchResultsView(ListView):
+    model = Item
+    template_name = "search_results.html"
+    paginate_by = 12
+
+    def get_queryset(self):
+        query = self.request.GET.get('q', '')
+        if query:
+            return Item.objects.filter(Q(title__icontains=query) | Q(description__icontains=query))
+        return Item.objects.none()
+
+
+class ItemDetailView(DetailView):
+    model = Item
+    template_name = "product.html"
+
+
+class OrderSummaryView(LoginRequiredMixin, View):
+    def get(self, *args, **kwargs):
+        try:
+            order = Order.objects.get(user=self.request.user, ordered=False)
+            context = {
+                'object': order
+            }
+            return render(self.request, 'order_summary.html', context)
+        except ObjectDoesNotExist:
+            messages.warning(self.request, "You do not have an active order")
+            return redirect("/")
 
 
 class CheckoutView(View):
@@ -81,7 +133,6 @@ class CheckoutView(View):
                 use_default_shipping = form.cleaned_data.get(
                     'use_default_shipping')
                 if use_default_shipping:
-                    print("Using the defualt shipping address")
                     address_qs = Address.objects.filter(
                         user=self.request.user,
                         address_type='S',
@@ -96,7 +147,6 @@ class CheckoutView(View):
                             self.request, "No default shipping address available")
                         return redirect('core:checkout')
                 else:
-                    print("User is entering a new shipping address")
                     shipping_address1 = form.cleaned_data.get(
                         'shipping_address')
                     shipping_address2 = form.cleaned_data.get(
@@ -144,7 +194,6 @@ class CheckoutView(View):
                     order.save()
 
                 elif use_default_billing:
-                    print("Using the defualt billing address")
                     address_qs = Address.objects.filter(
                         user=self.request.user,
                         address_type='B',
@@ -159,7 +208,6 @@ class CheckoutView(View):
                             self.request, "No default billing address available")
                         return redirect('core:checkout')
                 else:
-                    print("User is entering a new billing address")
                     billing_address1 = form.cleaned_data.get(
                         'billing_address')
                     billing_address2 = form.cleaned_data.get(
@@ -214,11 +262,10 @@ class PaymentView(View):
             context = {
                 'order': order,
                 'DISPLAY_COUPON_FORM': False,
-                'STRIPE_PUBLIC_KEY' : settings.STRIPE_PUBLIC_KEY
+                'STRIPE_PUBLIC_KEY': settings.STRIPE_PUBLIC_KEY
             }
             userprofile = self.request.user.userprofile
             if userprofile.one_click_purchasing:
-                # fetch the users card list
                 cards = stripe.Customer.list_sources(
                     userprofile.stripe_customer_id,
                     limit=3,
@@ -226,7 +273,6 @@ class PaymentView(View):
                 )
                 card_list = cards['data']
                 if len(card_list) > 0:
-                    # update the context with the default card
                     context.update({
                         'card': card_list[0]
                     })
@@ -250,7 +296,6 @@ class PaymentView(View):
                     customer = stripe.Customer.retrieve(
                         userprofile.stripe_customer_id)
                     customer.sources.create(source=token)
-
                 else:
                     customer = stripe.Customer.create(
                         email=self.request.user.email,
@@ -263,35 +308,32 @@ class PaymentView(View):
             amount = int(order.get_total() * 100)
 
             try:
-
                 if use_default or save:
-                    # charge the customer because we cannot charge the token more than once
                     charge = stripe.Charge.create(
-                        amount=amount,  # cents
+                        amount=amount,
                         currency="usd",
                         customer=userprofile.stripe_customer_id
                     )
                 else:
-                    # charge once off on the token
                     charge = stripe.Charge.create(
-                        amount=amount,  # cents
+                        amount=amount,
                         currency="usd",
                         source=token
                     )
 
-                # create the payment
                 payment = Payment()
                 payment.stripe_charge_id = charge['id']
                 payment.user = self.request.user
                 payment.amount = order.get_total()
                 payment.save()
 
-                # assign the payment to the order
-
                 order_items = order.items.all()
                 order_items.update(ordered=True)
                 for item in order_items:
                     item.save()
+                    # Оновлюємо лічильник продажів
+                    item.item.sales_count += item.quantity
+                    item.item.save()
 
                 order.ordered = True
                 order.payment = payment
@@ -308,36 +350,27 @@ class PaymentView(View):
                 return redirect("/")
 
             except stripe.error.RateLimitError as e:
-                # Too many requests made to the API too quickly
                 messages.warning(self.request, "Rate limit error")
                 return redirect("/")
 
             except stripe.error.InvalidRequestError as e:
-                # Invalid parameters were supplied to Stripe's API
-                print(e)
                 messages.warning(self.request, "Invalid parameters")
                 return redirect("/")
 
             except stripe.error.AuthenticationError as e:
-                # Authentication with Stripe's API failed
-                # (maybe you changed API keys recently)
                 messages.warning(self.request, "Not authenticated")
                 return redirect("/")
 
             except stripe.error.APIConnectionError as e:
-                # Network communication with Stripe failed
                 messages.warning(self.request, "Network error")
                 return redirect("/")
 
             except stripe.error.StripeError as e:
-                # Display a very generic error to the user, and maybe send
-                # yourself an email
                 messages.warning(
                     self.request, "Something went wrong. You were not charged. Please try again.")
                 return redirect("/")
 
             except Exception as e:
-                # send an email to ourselves
                 messages.warning(
                     self.request, "A serious error occurred. We have been notifed.")
                 return redirect("/")
@@ -346,35 +379,9 @@ class PaymentView(View):
         return redirect("/payment/stripe/")
 
 
-class HomeView(ListView):
-    model = Item
-    paginate_by = 10
-    template_name = "home.html"
-
-
-class OrderSummaryView(LoginRequiredMixin, View):
-    def get(self, *args, **kwargs):
-        try:
-            order = Order.objects.get(user=self.request.user, ordered=False)
-            context = {
-                'object': order
-            }
-            return render(self.request, 'order_summary.html', context)
-        except ObjectDoesNotExist:
-            messages.warning(self.request, "You do not have an active order")
-            return redirect("/")
-
-
-class ItemDetailView(DetailView):
-    model = Item
-    template_name = "product.html"
-
-
 @login_required
 def add_to_cart(request, slug):
-    # Accept quantity from POST (default 1)
     quantity = int(request.POST.get('quantity', 1))
-
     item = get_object_or_404(Item, slug=slug)
     order_item, created = OrderItem.objects.get_or_create(
         item=item,
@@ -384,13 +391,14 @@ def add_to_cart(request, slug):
     order_qs = Order.objects.filter(user=request.user, ordered=False)
     if order_qs.exists():
         order = order_qs[0]
-        # check if the order item is in the order
         if order.items.filter(item__slug=item.slug).exists():
-            order_item.quantity += 1
+            order_item.quantity += quantity
             order_item.save()
             messages.info(request, "This item quantity was updated.")
             return redirect("core:order-summary")
         else:
+            order_item.quantity = quantity
+            order_item.save()
             order.items.add(order_item)
             messages.info(request, "This item was added to your cart.")
             return redirect("core:order-summary")
@@ -398,6 +406,8 @@ def add_to_cart(request, slug):
         ordered_date = timezone.now()
         order = Order.objects.create(
             user=request.user, ordered_date=ordered_date)
+        order_item.quantity = quantity
+        order_item.save()
         order.items.add(order_item)
         messages.info(request, "This item was added to your cart.")
         return redirect("core:order-summary")
@@ -412,7 +422,6 @@ def remove_from_cart(request, slug):
     )
     if order_qs.exists():
         order = order_qs[0]
-        # check if the order item is in the order
         if order.items.filter(item__slug=item.slug).exists():
             order_item = OrderItem.objects.filter(
                 item=item,
@@ -440,7 +449,6 @@ def remove_single_item_from_cart(request, slug):
     )
     if order_qs.exists():
         order = order_qs[0]
-        # check if the order item is in the order
         if order.items.filter(item__slug=item.slug).exists():
             order_item = OrderItem.objects.filter(
                 item=item,
@@ -487,63 +495,6 @@ class AddCouponView(View):
                 messages.info(self.request, "You do not have an active order")
                 return redirect("core:checkout")
 
-
-class RequestRefundView(View):
-    def get(self, *args, **kwargs):
-        form = RefundForm()
-        context = {
-            'form': form
-        }
-        return render(self.request, "request_refund.html", context)
-
-    def post(self, *args, **kwargs):
-        form = RefundForm(self.request.POST)
-        if form.is_valid():
-            ref_code = form.cleaned_data.get('ref_code')
-            message = form.cleaned_data.get('message')
-            email = form.cleaned_data.get('email')
-            # edit the order
-            try:
-                order = Order.objects.get(ref_code=ref_code)
-                order.refund_requested = True
-                order.save()
-
-                # store the refund
-                refund = Refund()
-                refund.order = order
-                refund.reason = message
-                refund.email = email
-                refund.save()
-
-                messages.info(self.request, "Your request was received.")
-                return redirect("core:request-refund")
-
-            except ObjectDoesNotExist:
-                messages.info(self.request, "This order does not exist.")
-                return redirect("core:request-refund")
-
-
-from django.db.models import Q
-
-class CategoryItemListView(ListView):
-    model = Item
-    template_name = "products.html"
-    paginate_by = 12
-
-    def get_queryset(self):
-        category = self.kwargs.get('category')
-        return Item.objects.filter(category=category)
-
-class SearchResultsView(ListView):
-    model = Item
-    template_name = "search_results.html"
-    paginate_by = 12
-
-    def get_queryset(self):
-        query = self.request.GET.get('q', '')
-        if query:
-            return Item.objects.filter(Q(title__icontains=query) | Q(description__icontains=query))
-        return Item.objects.none()
 
 class AddReviewView(LoginRequiredMixin, View):
     def post(self, request, slug):

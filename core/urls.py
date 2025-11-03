@@ -9,30 +9,10 @@ from .views import (
     remove_single_item_from_cart,
     PaymentView,
     AddCouponView,
-    RequestRefundView
+    CategoryItemListView,
+    SearchResultsView,
+    AddReviewView
 )
-from django.http import HttpResponse
-from django.views import View
-
-
-# --- Safe placeholder classes to prevent NameError ---
-
-class CategoryItemListView(View):
-    def get(self, request, *args, **kwargs):
-        return HttpResponse("Category placeholder page")
-
-
-class SearchResultsView(View):
-    def get(self, request, *args, **kwargs):
-        return HttpResponse("Search results placeholder")
-
-
-class AddReviewView(View):
-    def get(self, request, *args, **kwargs):
-        return HttpResponse("Add review placeholder")
-
-
-# --- URL patterns ---
 
 app_name = 'core'
 
@@ -50,5 +30,4 @@ urlpatterns = [
          name='remove-single-item-from-cart'),
     path('payment/<payment_option>/', PaymentView.as_view(), name='payment'),
     path('add-review/<slug:slug>/', AddReviewView.as_view(), name='add-review'),
-    path('request-refund/', RequestRefundView.as_view(), name='request-refund'),
 ]

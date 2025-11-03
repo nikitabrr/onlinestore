@@ -4,7 +4,6 @@ from django.db import models
 from django.shortcuts import reverse
 from django_countries.fields import CountryField
 
-
 CATEGORY_CHOICES = (
     ('S', 'Shirt'),
     ('SW', 'Sport wear'),
@@ -42,6 +41,7 @@ class Item(models.Model):
     slug = models.SlugField(unique=True)
     description = models.TextField()
     image = models.ImageField(upload_to='products')
+    sales_count = models.IntegerField(default=0)  # Для відстеження продажів
 
     def __str__(self):
         return self.title
@@ -60,6 +60,17 @@ class Item(models.Model):
         return reverse("core:remove-from-cart", kwargs={
             'slug': self.slug
         })
+
+    def average_rating(self):
+        """Середній рейтинг товару"""
+        reviews = self.reviews.all()
+        if reviews.exists():
+            return sum([r.rating for r in reviews]) / reviews.count()
+        return 0
+
+    def review_count(self):
+        """Кількість відгуків"""
+        return self.reviews.count()
 
 
 class OrderItem(models.Model):
@@ -105,8 +116,6 @@ class Order(models.Model):
         'Coupon', on_delete=models.SET_NULL, blank=True, null=True)
     being_delivered = models.BooleanField(default=False)
     received = models.BooleanField(default=False)
-    refund_requested = models.BooleanField(default=False)
-    refund_granted = models.BooleanField(default=False)
 
     def __str__(self):
         return self.user.username
@@ -156,26 +165,6 @@ class Coupon(models.Model):
         return self.code
 
 
-class Refund(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
-    reason = models.TextField()
-    accepted = models.BooleanField(default=False)
-    email = models.EmailField()
-
-    def __str__(self):
-        return f"{self.pk}"
-
-
-def userprofile_receiver(sender, instance, created, *args, **kwargs):
-    if created:
-        userprofile = UserProfile.objects.create(user=instance)
-
-
-post_save.connect(userprofile_receiver, sender=settings.AUTH_USER_MODEL)
-
-
-
-# Reviews for items
 class Review(models.Model):
     item = models.ForeignKey(Item, related_name='reviews', on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -185,3 +174,11 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review {self.id} by {self.user} for {self.item}"
+
+
+def userprofile_receiver(sender, instance, created, *args, **kwargs):
+    if created:
+        userprofile = UserProfile.objects.create(user=instance)
+
+
+post_save.connect(userprofile_receiver, sender=settings.AUTH_USER_MODEL)

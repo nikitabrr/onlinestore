@@ -4,163 +4,149 @@
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="{% url 'core:home' %}">Home</a></li>
-      <li class="breadcrumb-item"><a href="{% url 'core:category' item.category %}">{{ item.get_category_display }}</a></li>
-      <li class="breadcrumb-item active" aria-current="page">{{ item.title }}</li>
+      <li class="breadcrumb-item"><a href="{% url 'core:category' object.category %}">{{ object.get_category_display }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ object.title }}</li>
     </ol>
   </nav>
 
-
   <main class="mt-5 pt-4">
-    <div class="container dark-grey-text mt-5">
+    <div class="container mt-5">
 
-      <!--Grid row-->
-      <div class="row wow fadeIn">
+      <div class="row">
 
-        <!--Grid column-->
+        <!-- Product Image -->
         <div class="col-md-6 mb-4">
-
-          <img src="https://mdbootstrap.com/img/Photos/Horizontal/E-commerce/Products/14.jpg" class="img-fluid" alt="">
-
+          {% if object.image %}
+          <img src="{{ object.image.url }}" class="img-fluid" alt="{{ object.title }}">
+          {% else %}
+          <img src="https://via.placeholder.com/600x400" class="img-fluid" alt="No image">
+          {% endif %}
         </div>
-        <!--Grid column-->
 
-        <!--Grid column-->
+        <!-- Product Details -->
         <div class="col-md-6 mb-4">
-
-          <!--Content-->
           <div class="p-4">
 
             <div class="mb-3">
-              <a href="">
-                <span class="badge purple mr-1">{{ object.get_category_display }}</span>
-              </a>
+              <span class="badge bg-primary">{{ object.get_category_display }}</span>
             </div>
 
-            <p class="lead">
+            <h2 class="mb-3">{{ object.title }}</h2>
+
+            <!-- Rating -->
+            <div class="mb-3">
+              <span class="text-warning">
+                {% with avg_rating=object.average_rating %}
+                  {% for i in "12345" %}
+                    {% if forloop.counter <= avg_rating %}★{% else %}☆{% endif %}
+                  {% endfor %}
+                {% endwith %}
+              </span>
+              <small class="text-muted">({{ object.review_count }} reviews)</small>
+            </div>
+
+            <!-- Price -->
+            <p class="lead mb-4">
               {% if object.discount_price %}
-              <span class="mr-1">
+              <span class="text-muted me-2">
                 <del>${{ object.price }}</del>
               </span>
-              <span>${{ object.discount_price }}</span>
+              <span class="text-primary h3">${{ object.discount_price }}</span>
               {% else %}
-              <span>${{ object.price }}</span>
+              <span class="text-primary h3">${{ object.price }}</span>
               {% endif %}
             </p>
 
             <p class="lead font-weight-bold">Description</p>
-
             <p>{{ object.description }}</p>
 
-            {% comment %} <form class="d-flex justify-content-left">
-              <!-- Default input -->
-              <input type="number" value="1" aria-label="Search" class="form-control" style="width: 100px">
-              <button class="btn btn-primary btn-md my-0 p" type="submit">
-                Add to cart
-                <i class="fas fa-shopping-cart ml-1"></i>
-              </button>
+            <!-- Quantity Selector and Add to Cart -->
+            <form method="POST" action="{{ object.get_add_to_cart_url }}" class="mb-3">
+              {% csrf_token %}
+              <div class="row align-items-center">
+                <div class="col-auto">
+                  <label for="quantity" class="form-label">Quantity:</label>
+                </div>
+                <div class="col-auto">
+                  <input type="number" name="quantity" id="quantity" value="1" min="1" max="99" class="form-control" style="width: 80px;">
+                </div>
+                <div class="col-auto">
+                  <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-shopping-cart"></i> Add to Cart
+                  </button>
+                </div>
+              </div>
+            </form>
 
-            </form> {% endcomment %}
-            <a href="{{ object.get_add_to_cart_url }}" class="btn btn-primary btn-md my-0 p">
-              Add to cart
-              <i class="fas fa-shopping-cart ml-1"></i>
-            </a>
-            <a href="{{ object.get_remove_from_cart_url }}" class="btn btn-danger btn-md my-0 p">
+            <a href="{{ object.get_remove_from_cart_url }}" class="btn btn-danger">
               Remove from cart
             </a>
 
           </div>
-          <!--Content-->
-
         </div>
-        <!--Grid column-->
 
       </div>
-      <!--Grid row-->
 
       <hr>
 
-      <!--Grid row-->
-      <div class="row d-flex justify-content-center wow fadeIn">
+      <!-- Reviews Section -->
+      <section id="reviews" class="mt-5">
+        <h3 class="mb-4">Customer Reviews</h3>
 
-        <!--Grid column-->
-        <div class="col-md-6 text-center">
+        {% for review in object.reviews.all %}
+          <div class="card mb-3">
+            <div class="card-body">
+              <div class="d-flex justify-content-between">
+                <h5 class="card-title">{{ review.user.username }}</h5>
+                <small class="text-muted">{{ review.created|date:"M d, Y" }}</small>
+              </div>
+              <div class="mb-2">
+                <span class="text-warning">
+                  {% for i in "12345" %}
+                    {% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}
+                  {% endfor %}
+                </span>
+                <span class="text-muted">({{ review.rating }}/5)</span>
+              </div>
+              <p class="card-text">{{ review.content }}</p>
+            </div>
+          </div>
+        {% empty %}
+          <p class="text-muted">No reviews yet. Be the first to review this product!</p>
+        {% endfor %}
 
-          <h4 class="my-4 h4">Additional information</h4>
-
-          <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Natus suscipit modi sapiente illo soluta odit
-            voluptates,
-            quibusdam officia. Neque quibusdam quas a quis porro? Molestias illo neque eum in laborum.</p>
-
-        </div>
-        <!--Grid column-->
-
-      </div>
-      <!--Grid row-->
-
-      <!--Grid row-->
-      <div class="row wow fadeIn">
-
-        <!--Grid column-->
-        <div class="col-lg-4 col-md-12 mb-4">
-
-          <img src="https://mdbootstrap.com/img/Photos/Horizontal/E-commerce/Products/11.jpg" class="img-fluid" alt="">
-
-        </div>
-        <!--Grid column-->
-
-        <!--Grid column-->
-        <div class="col-lg-4 col-md-6 mb-4">
-
-          <img src="https://mdbootstrap.com/img/Photos/Horizontal/E-commerce/Products/12.jpg" class="img-fluid" alt="">
-
-        </div>
-        <!--Grid column-->
-
-        <!--Grid column-->
-        <div class="col-lg-4 col-md-6 mb-4">
-
-          <img src="https://mdbootstrap.com/img/Photos/Horizontal/E-commerce/Products/13.jpg" class="img-fluid" alt="">
-
-        </div>
-        <!--Grid column-->
-
-      </div>
-      <!--Grid row-->
+        <!-- Add Review Form -->
+        {% if user.is_authenticated %}
+          <div class="card mt-4">
+            <div class="card-body">
+              <h4 class="card-title">Leave a Review</h4>
+              <form method="post" action="{% url 'core:add-review' object.slug %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                  <label for="id_rating" class="form-label">Rating</label>
+                  <select name="rating" id="id_rating" class="form-select" required>
+                    <option value="5" selected>5 - Excellent</option>
+                    <option value="4">4 - Very Good</option>
+                    <option value="3">3 - Good</option>
+                    <option value="2">2 - Fair</option>
+                    <option value="1">1 - Poor</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="id_content" class="form-label">Your Review</label>
+                  <textarea name="content" rows="4" class="form-control" id="id_content" required placeholder="Share your experience with this product..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Review</button>
+              </form>
+            </div>
+          </div>
+        {% else %}
+          <div class="alert alert-info mt-4">
+            <a href="{% url 'account_login' %}">Log in</a> to leave a review.
+          </div>
+        {% endif %}
+      </section>
 
     </div>
   </main>
-
-
-  <hr>
-  <section id="reviews">
-    <h3>Reviews</h3>
-    {% for review in object.reviews.all %}
-      <div class="review mb-3">
-        <strong>{{ review.user.username }}</strong> — {{ review.rating }}/5<br>
-        <small>{{ review.created }}</small>
-        <p>{{ review.content }}</p>
-      </div>
-    {% empty %}
-      <p>No reviews yet. Be the first to review.</p>
-    {% endfor %}
-    {% if user.is_authenticated %}
-      <h4>Leave a review</h4>
-      <form method="post" action="{% url 'core:add-review' object.slug %}">
-        {% csrf_token %}
-        <div class="form-group">
-          <label for="id_rating">Rating</label>
-          <input type="number" name="rating" min="1" max="5" value="5" class="form-control" id="id_rating">
-        </div>
-        <div class="form-group">
-          <label for="id_content">Review</label>
-          <textarea name="content" rows="4" class="form-control" id="id_content"></textarea>
-        </div>
-        <button class="btn btn-primary">Submit review</button>
-      </form>
-    {% else %}
-      <p><a href="{% url 'account_login' %}">Log in</a> to leave a review.</p>
-    {% endif %}
-  </section>
-
 {% endblock content %}
-
