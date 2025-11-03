@@ -1,5 +1,3 @@
-# Generated migration for sales_count field
-
 from django.db import migrations, models
 
 
