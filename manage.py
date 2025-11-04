@@ -1,9 +1,3 @@
-# Project: Online Store (modified)
-# This file is part of the e-commerce sample project.
-# All comments are in English. The project contains only Base and Medium complexity features.
-# Removed or intentionally left out High complexity features (multilingual, multi-level categories, advanced image zoom).
-
-#!/usr/bin/env python
 import os
 import sys
 
